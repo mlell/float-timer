@@ -1,6 +1,11 @@
 # Floating Timer PWA – Implementation Plan
 
-Derived from `PLAN.md`. Concepts only; standard practice assumed.
+## Task
+
+These are impelmentation steps of PLAN.md
+
+You are the orchestrator and use sub-agents with cheap models to implement
+step by step.
 
 ## Architecture
 
@@ -41,7 +46,8 @@ Derived from `PLAN.md`. Concepts only; standard practice assumed.
 - Deadline scheduling, visibility reconcile.
 - Visible completion state + Web Audio beep (gesture-unlocked, mute toggle).
 - Unit tests for core; one Playwright smoke test.
-- **Exit**: accurate countdown in a hidden tab; served via localhost.
+- **Exit**: accurate countdown in a hidden tab;
+- npm run bundle generates a stand-alone HTML.
 
 ## Wave 2 – Document PiP
 
