@@ -1,6 +1,6 @@
 /**
  * Entry point of the floating timer PWA: composes store, ticker, beeper, the
- * float manager (owner of the face's placement) and the header control. Owns no
+ * float manager (owner of the face's placement) and the float control. Owns no
  * logic of its own, only the wiring and the single time source.
  */
 import { Beeper } from "./audio";
@@ -34,7 +34,7 @@ const beeper = new Beeper();
 const ticker = new Ticker(store);
 const floating = new FloatManager(
   host,
-  (h) => mountFace(h, store, beeper),
+  (h) => mountFace(h, store, beeper, floatButton),
   ticker,
   window,
   new VideoPip(store),

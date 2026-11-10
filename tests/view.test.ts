@@ -195,6 +195,36 @@ describe("mountFace controls", () => {
     expect(unlock).toHaveBeenCalledTimes(6);
   });
 
+  it("keeps the shared float button beside mute across document remounts", () => {
+    const floatButton = document.createElement("button");
+    const onFloat = vi.fn();
+    floatButton.addEventListener("click", onFloat);
+    floatButton.setAttribute("aria-pressed", "true");
+    const face = mountFace(host, store, beeper, floatButton);
+    expect(q(".timer__btn--mute").nextElementSibling).toBe(floatButton);
+    expect(floatButton.querySelector("svg")).not.toBeNull();
+    face.dispose();
+
+    const other = document.implementation.createHTMLDocument("pip");
+    const pipFace = mountFace(other.body, store, beeper, floatButton);
+    expect(other.querySelector(".timer__btn--mute")?.nextElementSibling).toBe(
+      floatButton,
+    );
+    expect(floatButton.ownerDocument).toBe(other);
+    expect(floatButton.getAttribute("aria-pressed")).toBe("true");
+    floatButton.click();
+    expect(onFloat).toHaveBeenCalledTimes(1);
+    pipFace.dispose();
+
+    const restored = mountFace(host, store, beeper, floatButton);
+    expect(q(".timer__btn--mute").nextElementSibling).toBe(floatButton);
+    expect(host.querySelectorAll(".timer")).toHaveLength(1);
+    expect(other.querySelector(".timer")).toBeNull();
+    floatButton.click();
+    expect(onFloat).toHaveBeenCalledTimes(2);
+    restored.dispose();
+  });
+
   it("mute button flips beeper state and aria-pressed", () => {
     mount();
     const mute = qButton(".timer__btn--mute");

@@ -1,5 +1,5 @@
 /**
- * Float control: binds the header's Float button and status line to a `FloatManager`.
+ * Float control: binds the Float button and status line to a `FloatManager`.
  *
  * Responsibilities:
  * - Hide the button where neither PiP mode is available, so no dead control is offered.
@@ -19,7 +19,8 @@ export function bindFloatControl(
   manager: FloatManager,
   supported: boolean,
 ): { dispose(): void } {
-  button.textContent = TEXT.floatButton;
+  button.setAttribute("aria-label", TEXT.floatButton);
+  button.title = TEXT.floatButton;
   button.hidden = !supported;
 
   const render = (s: FloatState): void => {

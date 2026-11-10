@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Verifies the shared header control exposes capabilities, pending requests and video-mode guidance. */
+/** Verifies the shared float control exposes capabilities, pending requests and video-mode guidance. */
 import { afterEach, expect, it, vi } from "vitest";
 import { bindFloatControl } from "../src/float/control";
 import { FloatManager } from "../src/float/manager";
@@ -10,6 +10,8 @@ const cleanups: (() => void)[] = [];
 
 function setup(supported = true) {
   const button = document.createElement("button");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  button.append(svg);
   const status = document.createElement("p");
   const video = {
     open: vi.fn<VideoPipController["open"]>().mockResolvedValue({ ok: true }),
@@ -38,7 +40,9 @@ afterEach(() => {
 it("hides Float only when no floating capability is available", () => {
   const { button } = setup(false);
   expect(button.hidden).toBe(true);
-  expect(button.textContent).toBe("Float");
+  expect(button.querySelector("svg")).not.toBeNull();
+  expect(button.getAttribute("aria-label")).toBe(TEXT.floatButton);
+  expect(button.title).toBe(TEXT.floatButton);
   expect(button.getAttribute("aria-pressed")).toBe("false");
 });
 

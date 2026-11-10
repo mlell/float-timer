@@ -33,6 +33,8 @@ const ICON_SOUND_ON =
   "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z";
 const ICON_SOUND_OFF =
   "M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z";
+const ICON_PIP =
+  "M19 7h-8v6h8v-6zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zm-6-9h-4v4h4v-4z";
 
 /**
  * Center label in Classtimer's style.
@@ -113,7 +115,8 @@ interface Rendered {
 }
 
 /**
- * Builds the face inside `host` and keeps it in sync with `store`.
+ * Builds the face inside `host` and keeps it in sync with `store`, placing the
+ * optional shared float control beside mute.
  * @returns a handle whose `dispose()` removes listeners, the store subscription and
  * the face DOM; calling it again does nothing.
  */
@@ -121,6 +124,7 @@ export function mountFace(
   host: HTMLElement,
   store: Store,
   beeper: Beeper,
+  floatButton?: HTMLButtonElement,
 ): { dispose(): void } {
   const doc = host.ownerDocument;
 
@@ -207,6 +211,12 @@ export function mountFace(
   ]);
   muteBtn.setAttribute("aria-pressed", String(beeper.muted));
   quick.append(muteBtn);
+
+  if (floatButton !== undefined) {
+    // Reuse the bound control across page/PiP remounts so its listeners and state survive.
+    floatButton.replaceChildren(svgIcon(doc, "timer__icon", ICON_PIP));
+    quick.append(floatButton);
+  }
 
   // Visually hidden so it is not shown twice; separate from the display so per-frame updates never re-announce.
   const live = doc.createElement("div");

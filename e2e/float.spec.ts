@@ -60,6 +60,8 @@ test("video fallback keeps page controls and releases capture on close", async (
   });
   await page.goto("/");
   const float = page.getByRole("button", { name: "Float" });
+  await expect(page.getByRole("timer")).toHaveCount(1);
+  await expect(page.locator(".timer__btn--mute + #float-toggle")).toBeVisible();
   await page.getByRole("button", { name: "Add 1 minute", exact: true }).click();
   await float.click();
   await expect(float).toHaveAttribute("aria-pressed", "true");
@@ -103,7 +105,6 @@ test("open, close and reopen the floating timer", async ({ page }) => {
   const float = page.getByRole("button", { name: "Float" });
   for (let i = 0; i < 3; i++) {
     await float.click();
-    await expect(float).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Timer is floating")).toBeVisible();
     await expect(page.getByRole("timer")).toHaveCount(0);
 
