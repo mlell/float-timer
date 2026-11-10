@@ -14,8 +14,10 @@
 import {
   add,
   assertNever,
+  pause,
   reset,
   snapshot,
+  start,
   tick,
   toggle,
   IDLE,
@@ -26,6 +28,8 @@ import {
 
 export type Action =
   | { readonly type: "toggle" }
+  | { readonly type: "start" }
+  | { readonly type: "pause" }
   | { readonly type: "reset" }
   | { readonly type: "add"; readonly minutes: number }
   // Ticker frame action: applies only the pre-action `tick`, so time passing
@@ -51,6 +55,10 @@ function applyAction(s: TimerState, a: Action, now: Epoch): TimerState {
   switch (a.type) {
     case "toggle":
       return toggle(s, now);
+    case "start":
+      return start(s, now);
+    case "pause":
+      return pause(s, now);
     case "reset":
       return reset();
     case "add":

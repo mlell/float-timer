@@ -115,6 +115,63 @@ describe("video PiP", () => {
     expect(context.fillText).toHaveBeenCalledWith("Time's up", 160, 198);
   });
 
+  it.each(["standard", "Safari"])(
+    "pauses and resumes the countdown from %s playback controls",
+    async (mode) => {
+      if (mode === "Safari") {
+        property(document, "pictureInPictureEnabled", false);
+        property(
+          HTMLVideoElement.prototype,
+          "webkitSetPresentationMode",
+          enterSafari,
+        );
+      }
+      const { pip, store } = setup();
+      store.dispatch({ type: "add", minutes: 1 });
+      store.dispatch({ type: "start" });
+      await pip.open(vi.fn());
+      const video = document.querySelector("video");
+      if (video === null) throw new Error("Missing video");
+      vi.advanceTimersByTime(10_000);
+      video.dispatchEvent(new Event("pause"));
+      video.dispatchEvent(new Event("pause"));
+      vi.advanceTimersByTime(5_000);
+      expect(store.getSnapshot()).toMatchObject({
+        status: "paused",
+        remaining: 50_000,
+      });
+      video.dispatchEvent(new Event("play"));
+      video.dispatchEvent(new Event("play"));
+      vi.advanceTimersByTime(1_000);
+      expect(store.getSnapshot()).toMatchObject({
+        status: "running",
+        remaining: 49_000,
+      });
+      pip.close();
+      video.dispatchEvent(new Event("pause"));
+      expect(store.getState().status).toBe("running");
+    },
+  );
+
+  it("ignores playback events during preparation and after failed entry", async () => {
+    play.mockImplementationOnce(() => {
+      document.querySelector("video")?.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    });
+    request.mockRejectedValueOnce(
+      new DOMException("Gesture", "NotAllowedError"),
+    );
+    const { pip, store } = setup();
+    store.dispatch({ type: "add", minutes: 1 });
+    await pip.open(vi.fn());
+    const video = document.querySelector("video");
+    video?.dispatchEvent(new Event("play"));
+    expect(store.getState().status).toBe("paused");
+    store.dispatch({ type: "start" });
+    video?.dispatchEvent(new Event("pause"));
+    expect(store.getState().status).toBe("running");
+  });
+
   it("avoids redraws for unchanged snapshots but keeps periodic video frames", async () => {
     const { pip, store } = setup();
     await pip.open(vi.fn());

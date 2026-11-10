@@ -10,6 +10,8 @@
  *   which stops the opener's rAF although the face is still on screen.
  * - Reconcile on lifecycle events (visibility, focus, pageshow, `resume`) that
  *   signal the page may have been frozen or the machine slept.
+ * - Reset the completion indication after 15 seconds unless a user action
+ *   has already left the done state.
  * - Own every acquired resource (listeners, frame/timeout handles, store
  *   subscription) and release them in an idempotent `dispose()`.
  *
@@ -21,6 +23,7 @@ import type { Store } from "./store";
 
 /** Largest delay setTimeout accepts; larger values overflow and fire immediately. */
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+const DONE_RESET_MS = 15_000;
 
 interface VisibilityDocument {
   readonly visibilityState: DocumentVisibilityState;
@@ -58,6 +61,7 @@ export class Ticker {
   private frame: { readonly id: number; readonly owner: FrameSource } | null =
     null;
   private timeoutId: number | null = null;
+  private resetTimeoutId: number | null = null;
   private disposed = false;
 
   constructor(store: Store, win: TickerHost = window) {
@@ -115,6 +119,10 @@ export class Ticker {
     );
     this.frameSource = null;
     this.cancelPending();
+    if (this.resetTimeoutId !== null) {
+      this.win.clearTimeout(this.resetTimeoutId);
+      this.resetTimeoutId = null;
+    }
     this.unsubscribe();
   }
 
@@ -158,6 +166,16 @@ export class Ticker {
     this.cancelPending();
 
     const state = this.store.getState();
+    // Video refreshes and lifecycle reconciles must not restart this delay.
+    if (state.status === "done") {
+      this.resetTimeoutId ??= this.win.setTimeout(() => {
+        this.resetTimeoutId = null;
+        this.store.dispatch({ type: "reset" });
+      }, DONE_RESET_MS);
+    } else if (this.resetTimeoutId !== null) {
+      this.win.clearTimeout(this.resetTimeoutId);
+      this.resetTimeoutId = null;
+    }
     if (state.status !== "running") return;
 
     const owner = [this.frameSource, this.win].find(

@@ -1,5 +1,6 @@
 /**
- * Video PiP fallback: renders read-only store snapshots into a captured canvas.
+ * Video PiP fallback: renders store snapshots into a captured canvas and routes
+ * native playback controls to the timer.
  * Owns playback, background refreshes, browser-close listeners and stream cleanup.
  * Keeps playback prepared after an activation failure so the next click can
  * request PiP synchronously, without consuming its gesture in video.play().
@@ -283,6 +284,16 @@ export class VideoPip implements VideoPipController {
       )
         onLeave();
     };
+    // Preparing playback must not start the countdown; only controls from an
+    // entered PiP session are timer actions. Explicit actions tolerate repeats.
+    const onPlay = (): void => {
+      if (session.entered) this.store.dispatch({ type: "start" });
+    };
+    const onPause = (): void => {
+      if (session.entered) this.store.dispatch({ type: "pause" });
+    };
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
     video.addEventListener("leavepictureinpicture", onLeave);
     video.addEventListener(
       "webkitpresentationmodechanged",
@@ -305,6 +316,8 @@ export class VideoPip implements VideoPipController {
       release: () => {
         win.clearInterval(interval);
         unsubscribe();
+        video.removeEventListener("play", onPlay);
+        video.removeEventListener("pause", onPause);
         video.removeEventListener("leavepictureinpicture", onLeave);
         video.removeEventListener(
           "webkitpresentationmodechanged",

@@ -73,6 +73,19 @@ test("video fallback keeps page controls and releases capture on close", async (
     .getByRole("button", { name: "Add 3 minutes", exact: true })
     .click();
   await expect(page.getByRole("timer")).toHaveText("4");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.locator("video").evaluate((video: HTMLVideoElement) => {
+    video.pause();
+  });
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toBeVisible();
+  await page.locator("video").evaluate(async (video: HTMLVideoElement) => {
+    await video.play();
+  });
+  await expect(
+    page.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeVisible();
   expect(
     await page
       .locator("video")
@@ -96,6 +109,9 @@ test("video fallback keeps page controls and releases capture on close", async (
   ).toBe(true);
   await capture.dispose();
   await expect(page.getByRole("timer")).toHaveText("4");
+  await expect(
+    page.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeVisible();
 });
 
 test("open, close and reopen the floating timer", async ({ page }) => {

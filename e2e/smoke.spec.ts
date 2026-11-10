@@ -44,10 +44,12 @@ test("quick add, play, pause and reset", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
 });
 
-test("completes while the tab is hidden and shows the done cue", async ({
+test("completes while hidden and resets the done cue after 15 seconds", async ({
   page,
 }) => {
   await page.clock.install({ time: START_TIME });
+  // Freeze automatic clock advancement so the 15-second boundary is exact.
+  await page.clock.pauseAt(new Date(START_TIME.getTime() + 1_000));
   await page.goto("/");
 
   await page.getByRole("button", { name: "Add 1 minute" }).click();
@@ -62,11 +64,18 @@ test("completes while the tab is hidden and shows the done cue", async ({
     document.dispatchEvent(new Event("visibilitychange"));
   });
 
-  await page.clock.runFor(61_000);
+  await page.clock.runFor(60_000);
 
   // The visible cue is scoped by class: the same text also lives in the live region.
   await expect(page.locator(".timer__cue")).toBeVisible();
   await expect(page.locator(".timer__cue")).toHaveText("Time's up");
+  await page.clock.runFor(14_999);
+  await expect(page.locator(".timer__cue")).toBeVisible();
+  await page.clock.runFor(1);
+  await expect(page.locator(".timer__cue")).toBeHidden();
+  await expect(page.locator(".timer")).not.toHaveClass(/timer--done/);
+  await expect(timerDisplay(page)).toHaveText("0");
+  await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
 });
 
 test("standalone bundle renders the timer face", async ({ page }) => {

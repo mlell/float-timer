@@ -78,8 +78,8 @@ describe("hidden path", () => {
     advance(1);
     expect(done).toHaveBeenCalledTimes(1);
     expect(store.getState().status).toBe("done");
-    // Nothing remains scheduled once the timer is done.
-    expect(vi.getTimerCount()).toBe(0);
+    // The completion indication retains only its reset timeout.
+    expect(vi.getTimerCount()).toBe(1);
     ticker.dispose();
   });
 
@@ -124,6 +124,94 @@ describe("hidden path", () => {
     expect(vi.getTimerCount()).toBe(0);
     expect(frames.size).toBe(0);
     ticker.dispose();
+  });
+});
+
+describe("completion reset", () => {
+  it.each(["visible", "hidden"] as const)(
+    "resets to idle after 15 seconds while %s without repeating completion",
+    (state) => {
+      setVisibility(state);
+      const store = startedStore();
+      const done = vi.fn();
+      store.onComplete(done);
+      const ticker = new Ticker(store, window);
+      advance(MINUTE);
+      flushFrames();
+      advance(14_999);
+      expect(store.getState().status).toBe("done");
+      advance(1);
+      expect(store.getSnapshot()).toMatchObject({
+        status: "idle",
+        remaining: 0,
+        baseline: 0,
+      });
+      expect(done).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+      ticker.dispose();
+    },
+  );
+
+  it("does not postpone reset on repeated video refreshes or lifecycle events", () => {
+    const store = startedStore();
+    const ticker = new Ticker(store, window);
+    advance(MINUTE);
+    flushFrames();
+    for (let i = 0; i < 59; i++) {
+      advance(250);
+      store.dispatch({ type: "reconcile" });
+    }
+    window.dispatchEvent(new Event("focus"));
+    advance(250);
+    expect(store.getState().status).toBe("idle");
+    ticker.dispose();
+  });
+
+  it.each(["reset", "add"] as const)(
+    "cancels the pending reset after a user %s action",
+    (type) => {
+      const store = startedStore();
+      const ticker = new Ticker(store, window);
+      advance(MINUTE);
+      flushFrames();
+      advance(5_000);
+      if (type === "add") store.dispatch({ type, minutes: 1 });
+      else store.dispatch({ type });
+      expect(vi.getTimerCount()).toBe(0);
+      store.dispatch({ type: "add", minutes: 1 });
+      store.dispatch({ type: "start" });
+      advance(10_000);
+      expect(store.getState().status).toBe("running");
+      ticker.dispose();
+    },
+  );
+
+  it("rearms the reset for each new completion", () => {
+    const store = startedStore();
+    const ticker = new Ticker(store, window);
+    advance(MINUTE);
+    flushFrames();
+    advance(5_000);
+    store.dispatch({ type: "add", minutes: 1 });
+    store.dispatch({ type: "start" });
+    advance(MINUTE);
+    flushFrames();
+    advance(14_999);
+    expect(store.getState().status).toBe("done");
+    advance(1);
+    expect(store.getState().status).toBe("idle");
+    ticker.dispose();
+  });
+
+  it("cancels the completion reset on disposal", () => {
+    const store = startedStore();
+    const ticker = new Ticker(store, window);
+    advance(MINUTE);
+    flushFrames();
+    ticker.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+    advance(15_000);
+    expect(store.getState().status).toBe("done");
   });
 });
 

@@ -52,6 +52,25 @@ describe("store transitions", () => {
     expect(store.getState()).toEqual({ status: "idle" });
   });
 
+  it("explicit playback actions are idempotent and preserve remaining time", () => {
+    const { store, advance } = setup();
+    store.dispatch({ type: "start" });
+    store.dispatch({ type: "pause" });
+    expect(store.getState().status).toBe("idle");
+    store.dispatch({ type: "add", minutes: 1 });
+    store.dispatch({ type: "start" });
+    advance(10_000);
+    store.dispatch({ type: "start" });
+    expect(store.getSnapshot().remaining).toBe(50_000);
+    store.dispatch({ type: "pause" });
+    advance(5_000);
+    store.dispatch({ type: "pause" });
+    expect(store.getSnapshot().remaining).toBe(50_000);
+    store.dispatch({ type: "start" });
+    advance(1_000);
+    expect(store.getSnapshot().remaining).toBe(49_000);
+  });
+
   it("rejects invalid minutes via the timer core", () => {
     const { store } = setup();
     expect(() => {
@@ -116,6 +135,18 @@ describe("completion", () => {
     // Toggle on done is a no-op: the expired timer is not resurrected.
     expect(store.getState().status).toBe("done");
   });
+
+  it.each(["start", "pause"] as const)(
+    "reports completion before a late %s action without reviving the timer",
+    (type) => {
+      const { store, advance, done } = running();
+      advance(MINUTE);
+      store.dispatch({ type });
+      store.dispatch({ type });
+      expect(done).toHaveBeenCalledTimes(1);
+      expect(store.getState().status).toBe("done");
+    },
+  );
 
   it("is reported before add restarts an expired timer", () => {
     const { store, advance, done } = running();
