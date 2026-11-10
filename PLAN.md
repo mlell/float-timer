@@ -68,7 +68,7 @@ Remote references reviewed:
 | Offline | Service worker and Cache Storage | Precaches the complete application shell. |
 | Installation | Web app manifest, PNG icons, and maskable icon | Supports standalone installation where offered. |
 | Sound | Web Audio oscillator | No downloaded audio or offline sound asset required. |
-| Tests | Jest for timer logic; Playwright for page/offline flows | Keeps timing tests deterministic and browser checks repeatable. |
+| Tests | Vitest (with v8 coverage) for timer logic; Playwright for page/offline flows | Keeps timing tests deterministic and browser checks repeatable. |
 
 Do not add a UI framework, Electron, a database, Workbox, or a dedicated timing worker unless a demonstrated need appears. PiP needs real-browser manual checks in addition to automation.
 
@@ -118,7 +118,10 @@ The following are proposed defaults, not additional confirmed user requirements:
 
 - Preserve quick-add setup and reset-to-zero semantics. Starting at zero does nothing; no separate duration form is necessary for the first release.
 - Preserve the rounded-minute visual emphasis, including the less-than-one-minute state. Supply an exact accessible time description; a seconds-display preference can follow if needed.
-- Define a documented maximum duration and reject invalid, negative, non-finite, or excessive restored values.
+- The minute label rounds up (Classtimer used `Math.round`), so the label never shows 0 while time remains.
+- The face is 200 by 200 CSS pixels (Classtimer: 160) so 44-pixel touch targets fit inside the ring.
+- The completion sound is three short 800 Hz tones (Classtimer: one) so it is harder to miss.
+- The maximum duration is 24 hours. Reject invalid, negative, non-finite, or excessive restored values.
 - While running, calculate remaining time from an absolute deadline. Callback frequency affects visual smoothness, not countdown duration. Reconcile on focus, visibility changes, restoration, and resume after sleep.
 - Pause stores the remaining duration; resume establishes a new deadline. Adding minutes while running extends both the deadline and progress baseline, and adding while paused leaves the timer paused.
 - Complete at the deadline, clamp at zero, and fire the completion transition once. Do not inherit either source's extra-callback delay.

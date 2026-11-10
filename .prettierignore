@@ -1,0 +1,2 @@
+# index.html must keep the exact tag strings build.mjs matches for standalone inlining
+index.html
