@@ -10,7 +10,9 @@
   --color-text: #ecf0f1;
   --color-done: #e74c3c;
   --color-focus: #f1c40f;
-  --ring-size: 200px;
+  /* Derived from the viewport so the face fits both the page and a ~240x300 PiP window;
+     the subtracted height leaves room for the quick-add row. */
+  --ring-size: clamp(140px, min(70vw, 100vh - 96px), 200px);
   --touch-target: 44px;
   --font-family: Arial, sans-serif;
 }
@@ -20,6 +22,8 @@
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   min-height: 100vh;
   background-color: var(--color-bg);
@@ -28,13 +32,56 @@ body {
 }
 
 #app {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
   padding: max(16px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: max(8px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+}
+
+.app-header__status {
+  margin: 0;
+  font-size: 14px;
+}
+
+.timer__btn[hidden] {
+  display: none;
+}
+
+.timer__btn[aria-pressed="true"]#float-toggle {
+  border-color: var(--color-segment-on);
+}
+
+.timer__btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.float-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* PiP document body: the wrapper fills the window so the face stays centered while resizing. */
+.float-host {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
 }
 
 .timer {

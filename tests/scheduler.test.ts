@@ -3,7 +3,7 @@
 // timeout when hidden), lifecycle-triggered reconciles and teardown. The clock
 // is controlled and advanced together with vitest fake timers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Ticker } from "../src/scheduler";
+import { Ticker, type FrameSource } from "../src/scheduler";
 import { createStore } from "../src/store";
 import { MINUTE, epoch, ms, type Epoch } from "../src/timer";
 
@@ -257,5 +257,108 @@ describe("dispose", () => {
     window.dispatchEvent(new Event("pageshow"));
     document.dispatchEvent(new Event("resume"));
     expect(done).not.toHaveBeenCalled();
+  });
+});
+
+describe("frame source", () => {
+  function fakeSource(initial: DocumentVisibilityState = "visible") {
+    const sourceFrames = new Map<number, FrameRequestCallback>();
+    const doc = Object.assign(new EventTarget(), {
+      visibilityState: initial,
+    });
+    const source = {
+      document: doc,
+      requestAnimationFrame: vi.fn((cb: FrameRequestCallback) => {
+        const id = nextFrameId++;
+        sourceFrames.set(id, cb);
+        return id;
+      }),
+      cancelAnimationFrame: vi.fn((id: number) => {
+        sourceFrames.delete(id);
+      }),
+    } satisfies FrameSource;
+    const setSourceVisibility = (v: DocumentVisibilityState): void => {
+      doc.visibilityState = v;
+      doc.dispatchEvent(new Event("visibilitychange"));
+    };
+    return { source, sourceFrames, setSourceVisibility };
+  }
+
+  it("uses the source's rAF while its document is visible, even with the host hidden", () => {
+    const store = startedStore();
+    setVisibility("hidden");
+    const ticker = new Ticker(store, window);
+    const { source, sourceFrames } = fakeSource();
+    ticker.setFrameSource(source);
+    expect(sourceFrames.size).toBe(1);
+    expect(frames.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    const [cb] = [...sourceFrames.values()];
+    sourceFrames.clear();
+    cb?.(now);
+    expect(sourceFrames.size).toBe(1);
+    ticker.dispose();
+    expect(sourceFrames.size).toBe(0);
+  });
+
+  it("falls back to the host when the source becomes hidden", () => {
+    const store = startedStore();
+    const ticker = new Ticker(store, window);
+    const { source, sourceFrames, setSourceVisibility } = fakeSource();
+    ticker.setFrameSource(source);
+    setSourceVisibility("hidden");
+    expect(sourceFrames.size).toBe(0);
+    expect(frames.size).toBe(1);
+
+    setVisibility("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(frames.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(1);
+
+    setSourceVisibility("visible");
+    expect(sourceFrames.size).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+    ticker.dispose();
+  });
+
+  it("cancels a pending frame with the window that requested it", () => {
+    const store = startedStore();
+    const hostCancel = vi.spyOn(window, "cancelAnimationFrame");
+    const ticker = new Ticker(store, window);
+    const { source } = fakeSource();
+    ticker.setFrameSource(source);
+    // The host frame from construction is cancelled on the host.
+    expect(hostCancel).toHaveBeenCalledTimes(1);
+    expect(source.cancelAnimationFrame).not.toHaveBeenCalled();
+    ticker.setFrameSource(null);
+    expect(source.cancelAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(hostCancel).toHaveBeenCalledTimes(1);
+    expect(frames.size).toBe(1);
+    ticker.dispose();
+  });
+
+  it("releases the source listener when cleared", () => {
+    const store = startedStore();
+    const ticker = new Ticker(store, window);
+    const { source, sourceFrames, setSourceVisibility } = fakeSource("hidden");
+    ticker.setFrameSource(source);
+    ticker.setFrameSource(null);
+    setSourceVisibility("visible");
+    expect(sourceFrames.size).toBe(0);
+    expect(frames.size).toBe(1);
+    ticker.dispose();
+  });
+
+  it("releases the source listener on dispose and ignores later sources", () => {
+    const store = startedStore();
+    const ticker = new Ticker(store, window);
+    const { source, sourceFrames, setSourceVisibility } = fakeSource("hidden");
+    ticker.setFrameSource(source);
+    ticker.dispose();
+    ticker.dispose();
+    setSourceVisibility("visible");
+    expect(sourceFrames.size).toBe(0);
+    ticker.setFrameSource(fakeSource().source);
+    expect(frames.size).toBe(0);
   });
 });

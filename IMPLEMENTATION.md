@@ -13,7 +13,7 @@ step by step.
 - **Single source of truth**: pure timer functions taking `now` as parameter; page and floating views only render its snapshot.
 - **Completion once**: emitted by the state transition, not detected by renderers.
 - **Flow**: actions → timer → snapshot → plain subscriber list.
-- **Files**: `timer.ts` (pure core), `store.ts` (state owner, ticks before every action), `scheduler.ts` (`Ticker`: rAF visible / deadline timeout hidden), `view.ts` (face, mountable into any `Document`), `audio.ts` (`Beeper`), `main.ts` (wiring), `float.ts` (Document PiP + canvas fallback), `sw.ts`.
+- **Files**: `timer.ts` (pure core), `store.ts` (state owner, ticks before every action), `scheduler.ts` (`Ticker`: rAF visible / deadline timeout hidden), `view.ts` (face, mountable into any `Document`), `audio.ts` (`Beeper`), `main.ts` (wiring), `texts.ts` (shared user-facing texts/constants), `float/` (`manager.ts` owns face placement, `docpip.ts`, `control.ts` header button; canvas fallback later), `sw.ts`.
 - **Build**: `build.mjs` inlines CSS/JS into `dist/timer.html` by matching the literal `<link>`/`<script>` tags in `index.html` (hence `index.html` is in `.prettierignore`).
 
 ## Coding Style
@@ -52,7 +52,9 @@ Done: 125 unit tests (95 % lines), 3 Playwright smoke tests, `npm run bundle`. H
 - **Exit**: accurate countdown in a hidden tab;
 - npm run bundle generates a stand-alone HTML.
 
-## Wave 2 – Document PiP
+## Wave 2 – Document PiP (implemented 2026-11-10, exit pending headed check)
+
+Done: `float/docpip.ts`, `float/manager.ts`, `float/control.ts` (header button), `texts.ts`, `TickerHost` + `Ticker.setFrameSource` (PiP window drives rAF while opener is hidden). 142 unit tests, Playwright headless green (PiP round-trip skipped headless). Not verified: real PiP window (headed), resize at ~240×300, focus restore.
 
 - `float/manager` + `docpip`: move face into PiP, placeholder in main page, restore on `pagehide`.
 - Style sharing via tokens; resize-tolerant layout.
@@ -88,13 +90,24 @@ Done: 125 unit tests (95 % lines), 3 Playwright smoke tests, `npm run bundle`. H
 ## Wave 6 – Polish & Release
 
 - Play/pause: stable accessible name with `aria-pressed` only (currently name switches Start/Pause as well).
-- Accessibility: names, pressed state, live-region announcements on transitions only, focus restore after PiP.
+- Accessibility: names, pressed state, live-region announcements on transitions only (incl. float open/close, not only failures), focus restore after PiP.
 - Responsive/safe-area, reduced motion, high contrast, non-color completion cue.
 - Optional: seconds display, opt-in notifications.
 - Attribution/licenses (Tomodoro MIT, Classtimer verified).
 - **Exit**: acceptance table in `PLAN.md` §10 fully checked.
 
-## Wave 7 – Clean-up (collected from Wave 1 reviews)
+## Wave 7 – Clean-up (collected from Wave 1/2 reviews)
+
+From Wave 2:
+
+- `float/docpip.ts`: one feature-detect helper shared by `isDocPipSupported` and `openDocPip`; export `DocPipFailure` once and reuse it in `FloatState`.
+- `FloatManager`: replace the narrowing-workaround getters (`isDisposed`, `cancelledWhileOpening`) with a generation counter or explicit `disposed` state.
+- Remaining face labels (Start/Pause/Reset/Mute/Timer, `describeRemaining` wording) move to `texts.ts` for the canvas renderer.
+- One `Listenable` type for scheduler's `VisibilityDocument` and listener slices.
+- CSS: replace magic `96px` in `--ring-size` with tokens for header/quick-row height.
+- Drop static `aria-pressed` on `#float-toggle` in `index.html` (set by `control.ts`).
+
+From Wave 1:
 
 - `Snapshot`: replace ambiguous `progress` (0 for idle) with `fractionLeft`; drop the idle workaround in `view.ts`.
 - Expose next wake delay from store/timer; `getState()` is not re-ticked and can report `running` past the deadline.

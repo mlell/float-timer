@@ -17,11 +17,11 @@
  */
 import type { Beeper } from "./audio";
 import type { Store } from "./store";
-import { assertNever, MINUTE, type Ms, type Snapshot } from "./timer";
+import { announcementFor, QUICK_ADD_MINUTES, TEXT } from "./texts";
+import { MINUTE, type Ms, type Snapshot } from "./timer";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SEGMENT_COUNT = 12;
-const QUICK_ADD_MINUTES = [1, 3, 5] as const;
 
 // Icon paths and segment geometry are copied from Classtimer (24x24 Material-style icons).
 const ICON_PLAY = "M8 5v14l11-7z";
@@ -75,21 +75,6 @@ function litSegments(snap: Snapshot): number {
     SEGMENT_COUNT,
     Math.max(0, Math.ceil((1 - snap.progress) * SEGMENT_COUNT)),
   );
-}
-
-function announcementFor(status: Snapshot["status"]): string {
-  switch (status) {
-    case "running":
-      return "Timer started";
-    case "paused":
-      return "Timer paused";
-    case "done":
-      return "Time's up";
-    case "idle":
-      return "Timer reset";
-    default:
-      return assertNever(status);
-  }
 }
 
 function svgIcon(doc: Document, className: string, path: string): SVGElement {
@@ -178,7 +163,7 @@ export function mountFace(
   const cue = doc.createElement("div");
   cue.className = "timer__cue";
   cue.hidden = true;
-  cue.textContent = "Time's up";
+  cue.textContent = TEXT.timesUp;
 
   const playIcon = svgIcon(doc, "timer__icon timer__icon--play", ICON_PLAY);
   const pauseIcon = svgIcon(doc, "timer__icon timer__icon--pause", ICON_PAUSE);
