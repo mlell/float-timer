@@ -8,6 +8,7 @@ import { bindFloatControl } from "./float/control";
 import { isDocPipSupported } from "./float/docpip";
 import { FloatManager } from "./float/manager";
 import { isVideoPipSupported, VideoPip } from "./float/videopip";
+import { registerOffline } from "./offline";
 import { Ticker } from "./scheduler";
 import { createStore } from "./store";
 import { epoch } from "./timer";
@@ -48,3 +49,4 @@ bindFloatControl(
 store.onComplete(() => {
   beeper.beep();
 });
+void registerOffline();

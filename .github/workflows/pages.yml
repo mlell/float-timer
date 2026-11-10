@@ -1,5 +1,4 @@
-# Publishes the standalone single-file build (dist/timer.html) to GitHub Pages.
-# Pages serves _site/index.html, so the distributable artifact is copied under that name.
+# Publish the complete app shell and service worker for offline browser visits.
 name: Deploy to GitHub Pages
 
 on:
@@ -28,11 +27,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run bundle
+      - run: npm run build
       - name: Stage the distributable
         run: |
           mkdir -p _site
-          cp dist/timer.html _site/index.html
+          cp dist/index.html dist/main.js dist/styles.css dist/service-worker.js _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

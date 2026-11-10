@@ -1,7 +1,8 @@
-// Build pipeline: bundles src/main.ts with esbuild and copies the static shell into dist/.
-// --standalone additionally inlines CSS and JS into dist/timer.html so the app runs from a
+// Build pipeline: bundles the app shell and generates a versioned service worker in dist/.
+// --standalone instead inlines CSS and JS into dist/timer.html so the app runs from a
 // single file (e.g. opened from disk or attached to an email) without a web server.
 import { build } from "esbuild";
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const STANDALONE = process.argv.includes("--standalone");
@@ -44,6 +45,23 @@ if (STANDALONE) {
 } else {
   await copyFile("index.html", "dist/index.html");
   await copyFile("src/styles.css", "dist/styles.css");
+  // A content-derived version keeps each cached shell consistent across releases.
+  const assets = ["index.html", "main.js", "styles.css"];
+  const version = createHash("sha256");
+  for (const asset of assets) {
+    version.update(await readFile(`dist/${asset}`));
+  }
+  await build({
+    entryPoints: ["src/service-worker.js"],
+    bundle: true,
+    minify: true,
+    target: "es2022",
+    outfile: "dist/service-worker.js",
+    define: {
+      APP_VERSION: JSON.stringify(version.digest("hex")),
+      APP_ASSETS: JSON.stringify(assets),
+    },
+  });
 }
 
 function replaceExactlyOnce(source, needle, replacement) {

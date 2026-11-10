@@ -36,4 +36,8 @@ export default tseslint.config(
     files: ["**/*.js", "**/*.mjs"],
     ...tseslint.configs.disableTypeChecked,
   },
+  {
+    files: ["src/service-worker.js"],
+    languageOptions: { globals: globals.serviceworker },
+  },
 );
