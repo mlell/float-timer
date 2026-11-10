@@ -6,6 +6,102 @@ function pipSupported(page: Page): Promise<boolean> {
   return page.evaluate(() => "documentPictureInPicture" in window);
 }
 
+test("PiP layout scales without a cap and wraps controls in narrow windows", async ({
+  page,
+}) => {
+  await page.goto("/");
+  // Use the real mounted face and stylesheet without native PiP window-size limits.
+  await page.evaluate(() => {
+    const timer = document.querySelector(".timer");
+    if (timer === null) throw new Error("Missing timer face");
+    const host = document.createElement("div");
+    host.className = "float-host";
+    host.append(timer);
+    document.body.replaceChildren(host);
+  });
+
+  let previousSize = 200;
+  let previousFontSize = 32;
+  for (const size of [400, 800, 1200]) {
+    await page.setViewportSize({ width: size, height: size + 100 });
+    const ring = await page.locator(".timer__ring").boundingBox();
+    if (ring === null) throw new Error("Missing ring");
+    expect(ring.width).toBeGreaterThan(previousSize);
+    expect(ring.width).toBeCloseTo(ring.height);
+    previousSize = ring.width;
+    const fontSize = await page
+      .getByRole("timer")
+      .evaluate((display) =>
+        Number.parseFloat(getComputedStyle(display).fontSize),
+      );
+    expect(fontSize).toBeGreaterThan(previousFontSize);
+    previousFontSize = fontSize;
+  }
+
+  for (const width of [240, 160, 96]) {
+    await page.setViewportSize({ width, height: 500 });
+    const quick = await page.locator(".timer__quick").boundingBox();
+    if (quick === null) throw new Error("Missing quick controls");
+    expect(quick.height).toBeGreaterThan(44);
+    const buttons = await page.locator(".timer__btn:visible").all();
+    for (const button of buttons) {
+      const box = await button.boundingBox();
+      if (box === null) throw new Error("Missing button");
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(500);
+    }
+    const ring = await page.locator(".timer__ring").boundingBox();
+    if (ring === null) throw new Error("Missing ring");
+    expect(ring.y + ring.height).toBeLessThanOrEqual(quick.y);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+  }
+  const controls = await page.locator(".timer__main-controls").boundingBox();
+  expect(controls?.height).toBeGreaterThan(44);
+});
+
+for (const view of ["page", "PiP"]) {
+  test(`${view} hides controls below 150px and the ring below 100px`, async ({
+    page,
+  }) => {
+    await page.goto("/");
+    if (view === "PiP") {
+      await page.evaluate(() => {
+        const timer = document.querySelector(".timer");
+        if (timer === null) throw new Error("Missing timer face");
+        const host = document.createElement("div");
+        host.className = "float-host";
+        host.append(timer);
+        document.body.replaceChildren(host);
+      });
+    }
+
+    for (const height of [150, 149, 100, 99, 100, 150]) {
+      await page.setViewportSize({ width: 400, height });
+      await expect(page.getByRole("timer")).toBeVisible();
+      if (height < 150) {
+        await expect(page.locator("button:visible")).toHaveCount(0);
+        await expect(page.locator(".timer__quick")).toBeHidden();
+        await expect(page.locator(".timer__main-controls")).toBeHidden();
+        const display = await page.getByRole("timer").boundingBox();
+        if (display === null) throw new Error("Missing timer display");
+        expect(display.y).toBeGreaterThanOrEqual(0);
+        expect(display.y + display.height).toBeLessThanOrEqual(height);
+      } else {
+        await expect(
+          page.getByRole("button", { name: "Reset", exact: true }),
+        ).toBeVisible();
+        await expect(page.locator(".timer__quick")).toBeVisible();
+      }
+      if (height < 100) await expect(page.locator(".timer__ring")).toBeHidden();
+      else await expect(page.locator(".timer__ring")).toBeVisible();
+    }
+  });
+}
+
 test("Float button is hidden when neither PiP mode is supported", async ({
   page,
 }) => {
