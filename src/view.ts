@@ -69,7 +69,7 @@ export function describeRemaining(remaining: Ms): string {
  * @returns the number of lit segments in 0..12; 0 without a baseline (idle has progress 0,
  * which would otherwise read as "everything left"); `ceil` keeps one lit until the very end.
  */
-function litSegments(snap: Snapshot): number {
+export function litSegments(snap: Snapshot): number {
   if (snap.baseline === 0) return 0;
   return Math.min(
     SEGMENT_COUNT,

@@ -2,7 +2,7 @@
  * Float control: binds the header's Float button and status line to a `FloatManager`.
  *
  * Responsibilities:
- * - Hide the button where Document PiP is unavailable, so no dead control is offered.
+ * - Hide the button where neither PiP mode is available, so no dead control is offered.
  * - Reflect manager state: `aria-pressed` while floating, disabled while a
  *   request is pending (double clicks), failure explanation in a status region.
  * - Release its listeners and subscription in `dispose()`.
@@ -25,7 +25,12 @@ export function bindFloatControl(
   const render = (s: FloatState): void => {
     button.setAttribute("aria-pressed", String(s.kind === "open"));
     button.disabled = s.kind === "opening";
-    status.textContent = s.kind === "failed" ? floatFailureText(s.reason) : "";
+    status.textContent =
+      s.kind === "failed"
+        ? floatFailureText(s.reason)
+        : s.kind === "open" && s.mode === "video"
+          ? TEXT.floatVideoHint
+          : "";
   };
   const onClick = (): void => {
     void manager.toggle();

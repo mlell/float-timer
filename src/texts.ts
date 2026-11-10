@@ -16,10 +16,12 @@ export const TEXT = {
   floatButton: "Float",
   floatPlaceholder: "Timer is floating",
   floatBringBack: "Bring back",
+  floatVideoHint: "Timer is floating. Use the controls here to adjust it.",
+  paused: "Paused",
 } as const;
 
 /**
- * Status-line explanation for a failed Document PiP request.
+ * Status-line explanation for a failed PiP request.
  * @returns one sentence telling the user why floating did not open and that the page timer still works.
  */
 export function floatFailureText(

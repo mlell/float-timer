@@ -7,6 +7,7 @@ import { Beeper } from "./audio";
 import { bindFloatControl } from "./float/control";
 import { isDocPipSupported } from "./float/docpip";
 import { FloatManager } from "./float/manager";
+import { isVideoPipSupported, VideoPip } from "./float/videopip";
 import { Ticker } from "./scheduler";
 import { createStore } from "./store";
 import { epoch } from "./timer";
@@ -35,8 +36,15 @@ const floating = new FloatManager(
   host,
   (h) => mountFace(h, store, beeper),
   ticker,
+  window,
+  new VideoPip(store),
 );
-bindFloatControl(floatButton, floatStatus, floating, isDocPipSupported());
+bindFloatControl(
+  floatButton,
+  floatStatus,
+  floating,
+  isDocPipSupported() || isVideoPipSupported(),
+);
 store.onComplete(() => {
   beeper.beep();
 });

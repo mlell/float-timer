@@ -1,5 +1,5 @@
 /**
- * FloatManager: single owner of *where* the timer face is mounted (page or Document PiP).
+ * FloatManager: owns Document PiP face placement and the read-only video fallback.
  *
  * Responsibilities:
  * - Mount the page face on construction, so exactly one module decides which
@@ -17,16 +17,18 @@
 import { TEXT } from "../texts";
 import type { FrameSource } from "../scheduler";
 import {
+  isDocPipSupported,
   openDocPip,
   type DocPipFailure,
   type DocPipHost,
   type PipWindow,
 } from "./docpip";
+import type { VideoPipController } from "./videopip";
 
 export type FloatState =
   | { readonly kind: "closed" }
   | { readonly kind: "opening" }
-  | { readonly kind: "open" }
+  | { readonly kind: "open"; readonly mode: "document" | "video" }
   | { readonly kind: "failed"; readonly reason: DocPipFailure };
 
 export interface Mounted {
@@ -53,6 +55,7 @@ export class FloatManager {
   private readonly listeners = new Set<(s: FloatState) => void>();
   private pageFace: Mounted | null;
   private session: Session | null = null;
+  private videoOpen = false;
   /** Set when close()/dispose() arrive while a request is pending; the window is closed on arrival. */
   private abandonOpening = false;
   private disposed = false;
@@ -62,6 +65,7 @@ export class FloatManager {
     private readonly mount: (host: HTMLElement) => Mounted,
     private readonly ticker: FrameSourceSink,
     private readonly win: DocPipHost = window,
+    private readonly video: VideoPipController | null = null,
   ) {
     this.pageFace = mount(pageHost);
   }
@@ -95,6 +99,19 @@ export class FloatManager {
       return;
     this.abandonOpening = false;
     this.setState({ kind: "opening" });
+    if (!isDocPipSupported(this.win) && this.video !== null) {
+      const result = await this.video.open(this.onPipHide);
+      if (this.cancelledWhileOpening()) {
+        this.video.close();
+        if (!this.isDisposed()) this.setState({ kind: "closed" });
+      } else if (!result.ok) {
+        this.setState({ kind: "failed", reason: result.reason });
+      } else {
+        this.videoOpen = true;
+        this.setState({ kind: "open", mode: "video" });
+      }
+      return;
+    }
     const result = await openDocPip(PIP_SIZE, this.win);
     // Re-read through a method: close()/dispose() may have run during the await,
     // which TypeScript's narrowing of `this` fields cannot see.
@@ -108,15 +125,23 @@ export class FloatManager {
       return;
     }
     this.attach(result.pip);
-    this.setState({ kind: "open" });
+    this.setState({ kind: "open", mode: "document" });
   }
 
   /** Restores the face to the page; safe in any state and repeatedly. */
   close(): void {
     if (this.state.kind === "opening") {
       this.abandonOpening = true;
+      this.video?.close();
       return;
     }
+    this.video?.close();
+    if (this.videoOpen) {
+      this.videoOpen = false;
+      this.setState({ kind: "closed" });
+      return;
+    }
+    if (this.state.kind === "failed") this.setState({ kind: "closed" });
     if (this.session === null) return;
     this.detach(this.session);
     this.pageFace = this.mount(this.pageHost);
@@ -127,6 +152,8 @@ export class FloatManager {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.video?.dispose();
+    this.videoOpen = false;
     if (this.session !== null) this.detach(this.session);
     this.pageFace?.dispose();
     this.pageFace = null;

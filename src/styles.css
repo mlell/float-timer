@@ -75,6 +75,17 @@ body {
   gap: 12px;
 }
 
+/* Keep Safari's video eligible for PiP without duplicating the visible timer. */
+.float-video {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  bottom: 0;
+  left: 0;
+}
+
 /* PiP document body: the wrapper fills the window so the face stays centered while resizing. */
 .float-host {
   flex: 1;

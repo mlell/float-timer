@@ -10,6 +10,7 @@ import {
 } from "../src/float/docpip";
 import { FloatManager, type FloatState } from "../src/float/manager";
 import type { FrameSource } from "../src/scheduler";
+import type { VideoPipController, VideoPipResult } from "../src/float/videopip";
 
 class FakePip extends EventTarget implements PipWindow {
   readonly document = document.implementation.createHTMLDocument("pip");
@@ -43,6 +44,7 @@ function fakeHost(requestWindow: () => Promise<PipWindow>): DocPipHost {
 
 function setup(
   requestWindow = vi.fn(() => Promise.resolve<PipWindow>(new FakePip())),
+  video: VideoPipController | null = null,
 ) {
   const pageHost = document.createElement("div");
   let mounts = 0;
@@ -72,7 +74,8 @@ function setup(
     pageHost,
     mount,
     ticker,
-    fakeHost(requestWindow),
+    video === null ? fakeHost(requestWindow) : { document },
+    video,
   );
   return {
     pageHost,
@@ -129,6 +132,62 @@ describe("openDocPip", () => {
 });
 
 describe("FloatManager", () => {
+  it("keeps the page face and ticker intact while video PiP opens and closes", async () => {
+    const video = {
+      open: vi.fn(() => Promise.resolve<VideoPipResult>({ ok: true })),
+      close: vi.fn(),
+      dispose: vi.fn(),
+    };
+    const { manager, pageHost, sources, counts } = setup(undefined, video);
+    await manager.open();
+    expect(manager.getState()).toEqual({ kind: "open", mode: "video" });
+    expect(pageHost.querySelector(".face")).not.toBeNull();
+    expect(pageHost.querySelector(".float-placeholder")).toBeNull();
+    manager.close();
+    expect(manager.getState()).toEqual({ kind: "closed" });
+    expect(video.close).toHaveBeenCalledTimes(1);
+    expect(counts()).toEqual({ mounts: 1, disposes: 0 });
+    expect(sources).toEqual([]);
+  });
+
+  it("propagates video activation failure and permits retry", async () => {
+    const video = {
+      open: vi
+        .fn<VideoPipController["open"]>()
+        .mockResolvedValueOnce({ ok: false, reason: "no-activation" })
+        .mockResolvedValueOnce({ ok: true }),
+      close: vi.fn(),
+      dispose: vi.fn(),
+    };
+    const { manager } = setup(undefined, video);
+    await manager.open();
+    expect(manager.getState()).toEqual({
+      kind: "failed",
+      reason: "no-activation",
+    });
+    await manager.open();
+    expect(manager.getState()).toEqual({ kind: "open", mode: "video" });
+    manager.dispose();
+    expect(video.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("discards video PiP that finishes after cancellation", async () => {
+    const pending = deferred<VideoPipResult>();
+    const video = {
+      open: vi.fn(() => pending.promise),
+      close: vi.fn(),
+      dispose: vi.fn(),
+    };
+    const { manager, counts } = setup(undefined, video);
+    const opening = manager.open();
+    manager.close();
+    pending.resolve({ ok: true });
+    await opening;
+    expect(manager.getState()).toEqual({ kind: "closed" });
+    expect(video.close).toHaveBeenCalled();
+    expect(counts()).toEqual({ mounts: 1, disposes: 0 });
+  });
+
   it("mounts the page face initially", () => {
     const { pageHost, manager } = setup();
     expect(pageHost.querySelector(".face")).not.toBeNull();
@@ -141,7 +200,7 @@ describe("FloatManager", () => {
       vi.fn(() => Promise.resolve<PipWindow>(pip)),
     );
     await manager.open();
-    expect(manager.getState()).toEqual({ kind: "open" });
+    expect(manager.getState()).toEqual({ kind: "open", mode: "document" });
     expect(pageHost.querySelector(".face")).toBeNull();
     expect(pageHost.textContent).toContain("Timer is floating");
     expect(pip.document.querySelector(".float-host .face")).not.toBeNull();
@@ -219,7 +278,7 @@ describe("FloatManager", () => {
     });
     expect(pageHost.querySelector(".face")).not.toBeNull();
     await manager.open();
-    expect(manager.getState()).toEqual({ kind: "open" });
+    expect(manager.getState()).toEqual({ kind: "open", mode: "document" });
   });
 
   it("closes a window that arrives after close() was requested", async () => {
