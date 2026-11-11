@@ -13,7 +13,7 @@
   /* Derived from the viewport so the face fits both the page and a ~240x300 PiP window;
      the subtracted height leaves room for the quick-add row. */
   --ring-size: clamp(140px, min(70vw, 100vh - 96px), 200px);
-  --touch-target: 44px;
+  --touch-target: 30px;
   --font-family: Arial, sans-serif;
 }
 
@@ -222,7 +222,7 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font: inherit;
-  font-size: 11pt;
+  font-size: 8pt;
 }
 
 .timer__btn:hover {
