@@ -12,7 +12,9 @@ A floating countdown for workshops and classrooms. Keep the time visible while p
 
 ## Add to Your Device
 
-Open the timer in your browser, then:
+Open the timer in your browser: https://mlell.github.io/float-timer
+
+Use it via the browser or add it as an app:
 
 - **Chrome / Edge:** Browser menu > Install app, if offered. Otherwise, choose Create shortcut or Add to Home screen.
 - **Safari on iPad / iPhone:** Sharing button > Add to Home Screen. Turn **Open as Web App** off (the “Add as web-app” slider), then Add. PiP seems not to work in a “real” PWA; use this browser shortcut instead.
